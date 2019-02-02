@@ -25,6 +25,7 @@ import generic
 import datetime
 import sickbeard
 
+from lib import cfscrape
 from lib import requests
 
 from sickbeard import db
@@ -176,21 +177,40 @@ class IPTorrentsProvider(generic.TorrentProvider):
         else:
             logger.log("[{}] {} Error no data returned!!".format(self.name, self.funcName()))
         return results
-
+    
     ###################################################################################################
-
-    def _CloudFlareError(self, response):
-        if getattr(response, 'status_code', 0) in [520, 521]:
-            self.session = None
-            logger.log("[{}] {} Site down/overloaded cloudflare status code: {}".format(
+    
+    def _cloudFlare(self, response):
+        cf = cfscrape.create_scraper(sess=self.session)
+        if cf.is_cloudflare_challenge(response):
+            logger.log(
+                "[{}] {} requested URL - {}, encounted CloudFlare DDOS Protection.. Bypassing.".format(
                     self.name,
                     self.funcName(),
-                    response.status_code
+                    response.url
                 ),
-                logger.ERROR
+                logger.DEBUG
             )
-            return True
-        return False
+
+            response = cf.get(
+                "{}/t".format(self.url),
+                timeout=30,
+                verify=False
+            )
+
+            if not cf.is_cloudflare_challenge(response):
+                logger.log(
+                    "[{}] {} CloudFlare DDOS Protection.. Bypassed successfully.".format(
+                        self.name,
+                        self.funcName(),
+                    ),
+                    logger.DEBUG
+                )
+                return (True, True);
+
+            return (True, False)
+
+        return (False, True)
     
     ###################################################################################################
     
@@ -203,8 +223,13 @@ class IPTorrentsProvider(generic.TorrentProvider):
         try:
             if 'getrss.php' in url:
                 response = self.session.post(url, data=data, timeout=30, verify=False)
+                if (True, True) == self._cloudFlare(response):
+                    response = self.session.post(url, data=data, timeout=30, verify=False)
             else:
                 response = self.session.get(url, timeout=30, verify=False)
+                if (True, True) == self._cloudFlare(response):
+                    response = self.session.get(url, timeout=30, verify=False)
+
         except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
             logger.log("[{}] {} Error loading {} URL: {}".format(
                     self.name,
@@ -214,9 +239,6 @@ class IPTorrentsProvider(generic.TorrentProvider):
                 ),
                 logger.ERROR
             )
-            return None
-
-        if self._CloudFlareError(response):
             return None
         
         if hasattr(response, 'status_code') and response.status_code not in [200, 302, 303]:
@@ -242,17 +264,16 @@ class IPTorrentsProvider(generic.TorrentProvider):
             logger.DEBUG
         )
         try:
-            post_params = {
-                's0': '',
-                's1': '',
-                'cat[]': '5',
-                'feed': 'direct',
-            }
             (self.rss_uid, self.rss_passkey) = re.findall(
                 r'\/t\.rss\?u=(\d+);tp=([0-9A-Fa-f]{32});',
                 self.getURL(
                     "{}getrss.php".format(self.url),
-                    post_params
+                    {
+                        's0': '',
+                        's1': '',
+                        'cat[]': '5',
+                        'feed': 'direct',
+                    }
                 )
             )[0]
         except:
@@ -297,7 +318,6 @@ class IPTorrentsProvider(generic.TorrentProvider):
         login_params = {
             'username': sickbeard.IPTORRENTS_USERNAME,
             'password': sickbeard.IPTORRENTS_PASSWORD,
-            'login': 'submit'
         }
 
         self.switchURL()
@@ -312,15 +332,21 @@ class IPTorrentsProvider(generic.TorrentProvider):
                 timeout=30,
                 verify=False
             )
+            
+            if (True, True) == self._cloudFlare(response):
+                response = self.session.post(
+                    "{}/take_login.php".format(self.url),
+                    data=login_params,
+                    timeout=30,
+                    verify=False
+                )
+                
         except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
             self.session = None
             logger.log("[{}] {} Error: {}".foramt(self.name, self.funcName(), str(e)), logger.ERROR)
             return False
-
-        if self._CloudFlareError(response):
-            return False
         
-        if re.search("take_login\.php|Password not correct|<title>IPT</title>", response.content) \
+        if re.search("take_login\.php|Please try again", response.content) \
         or response.status_code in [401, 403]:
             self.session = None
             logger.log("[{}] {} Login Failed, Invalid username or password for {}. Check your settings.".format(
