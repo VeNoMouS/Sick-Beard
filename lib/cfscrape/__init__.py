@@ -83,6 +83,7 @@ class CloudflareScraper(Session):
         try:
             params["jschl_vc"] = re.search(r'name="jschl_vc" value="(\w+)"', body).group(1)
             params["pass"] = re.search(r'name="pass" value="(.+?)"', body).group(1)
+            params["s"] = re.search(r'name="s"\svalue="(?P<s_value>[^"]+)', body).group('s_value')
 
         except Exception as e:
             # Something is wrong with the page.
@@ -114,7 +115,7 @@ class CloudflareScraper(Session):
         except Exception:
             raise ValueError("Unable to identify Cloudflare IUAM Javascript on website. %s" % BUG_REPORT)
 
-        js = re.sub(r"a\.value = (.+ \+ t\.length).+", r"\1", js)
+        js = re.sub(r"a\.value = (.+ \+ t\.length(\).toFixed\(10\))?).+", r"\1", js)
         js = re.sub(r"\s{3,}[a-z](?: = |\.).+", "", js).replace("t.length", str(len(domain)))
 
         # Strip characters that could be used to exit the string context
