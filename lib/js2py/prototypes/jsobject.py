@@ -1,10 +1,9 @@
-
 class ObjectPrototype:
     def toString():
-        return '[object %s]'%this.Class
+        return '[object %s]' % this.Class
 
     def valueOf():
-        return this
+        return this.to_object()
 
     def toLocaleString():
         return this.callprop('toString')
@@ -27,9 +26,3 @@ class ObjectPrototype:
     def propertyIsEnumerable(prop):
         cand = this.own.get(prop.to_string().value)
         return cand is not None and cand.get('enumerable')
-
-
-
-
-
-
