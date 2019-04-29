@@ -35,6 +35,11 @@ from sickbeard.common import Quality
 from sickbeard.common import Overview
 from sickbeard import show_name_helpers
 
+try:
+    import brotli
+except ImportError:
+    logger.log('!!Error!! Please install the python module `brotli`.', logger.ERROR)
+
 class IPTorrentsProvider(generic.TorrentProvider):
     ###################################################################################################
     def __init__(self):
