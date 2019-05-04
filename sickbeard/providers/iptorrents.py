@@ -192,7 +192,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
             else:
                 response = self.session.get(url, timeout=30, verify=False)
 
-        except (lib.requests.exceptions.ConnectionError, lib.requests.exceptions.HTTPError), e:
+        except (exceptions.ConnectionError, exceptions.HTTPError), e:
             logger.log("[{}] {} Error loading {} URL: {}".format(
                     self.name,
                     self.funcName(),
@@ -296,7 +296,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
                 verify=False
             )
 
-        except (lib.requests.exceptions.ConnectionError, lib.requests.exceptions.HTTPError), e:
+        except (exceptions.ConnectionError, exceptions.HTTPError), e:
             self.session = None
             logger.log("[{}] {} Error: {}".foramt(self.name, self.funcName(), str(e)), logger.ERROR)
             return False

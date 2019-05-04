@@ -295,7 +295,7 @@ class TorrentDayProvider(
                 return response
         try:
             response = self.session.get(url, params=data, verify=False)
-        except (lib.requests.exceptions.ConnectionError, lib.requests.exceptions.HTTPError), e:
+        except (exceptions.ConnectionError, exceptions.HTTPError), e:
             logger.log(
                 "[{0}] {1} Error loading URL: {2}, Error: {3}".format(
                     self.name,
