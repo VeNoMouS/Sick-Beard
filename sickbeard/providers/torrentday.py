@@ -28,7 +28,8 @@ import datetime
 import sickbeard
 import exceptions
 
-from lib import requests
+from lib import cloudscraper
+from lib.requests import exceptions, utils
 from xml.sax.saxutils import escape
 
 from sickbeard import db
@@ -294,7 +295,7 @@ class TorrentDayProvider(
                 return response
         try:
             response = self.session.get(url, params=data, verify=False)
-        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
+        except (lib.requests.exceptions.ConnectionError, lib.requests.exceptions.HTTPError), e:
             logger.log(
                 "[{0}] {1} Error loading URL: {2}, Error: {3}".format(
                     self.name,
@@ -414,7 +415,7 @@ class TorrentDayProvider(
                 'pass': sickbeard.TORRENTDAY_PASS
             }
 
-        existing_cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+        existing_cookies = utils.dict_from_cookiejar(self.session.cookies)
         for cookie_name in cookies:
             if cookie_name in existing_cookies:
                 if existing_cookies.get(cookie_name) != cookies.get(cookie_name):
@@ -514,7 +515,7 @@ class TorrentDayProvider(
                 )
                 return False
 
-            cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+            cookies = utils.dict_from_cookiejar(self.session.cookies)
             if cookies.get('uid') and cookies.get('pass'):
                 logger.log(
                     "[{0}] {1} Appears we authenticated with TorrentDay, storing away session for later use.".format(
@@ -626,7 +627,7 @@ class TorrentDayProvider(
             )
             return False
 
-        cookies = requests.utils.dict_from_cookiejar(self.session.cookies)
+        cookies = utils.dict_from_cookiejar(self.session.cookies)
         if cookies.get('uid') and cookies.get('pass'):
             logger.log(
                 "[{0}] {1} Appears we authenicated with TorrentDay, storing away session for later use.".format(
@@ -645,7 +646,7 @@ class TorrentDayProvider(
 
     def _doLogin(self):
         if not self.session:
-            self.session = requests.Session()
+            self.session = cloudscraper.create_scraper()
 
         if sickbeard.TORRENTDAY_EMAIL_URL:
             self._handleEmailLink()
