@@ -27,8 +27,8 @@ import sickbeard
 
 import time
 
-from lib import requests
-from lib import cfscrape
+from lib import cloudscraper
+from lib.requests import exceptions
 from xml.sax.saxutils import escape
 
 import xml.etree.cElementTree as etree
@@ -49,7 +49,7 @@ class TORRENTZProvider(generic.TorrentProvider):
         self.url = 'https://torrentz2.eu/'
         self.name = "Torrentz"
         self.supportsBacklog = True
-        self.session = requests.Session()
+        self.session = cloudscraper.create_scraper()
         self.funcName = lambda n=0: sys._getframe(n + 1).f_code.co_name + "()"
         logger.log("[" + self.name + "] initializing...")
 
@@ -141,17 +141,16 @@ class TORRENTZProvider(generic.TorrentProvider):
 
         for page in range(0, 2):
             searchData = None
+            searchURL = '{}feed?f={}&p={}'.format(self.url, urllib.quote_plus(search_params), str(page))
 
-            searchURL = self.url + "feed?f=" + urllib.quote_plus(search_params) + "&p=" + str(page)
-
-            logger.log("[" + self.name + "] " + self.funcName() + " - " + searchURL, logger.DEBUG)
+            logger.log('[{}] {} - {}'.format(self.name, self.funcName(), searchURL), logger.DEBUG)
             searchData = self.getURL(searchURL)
 
             if searchData and searchData.startswith("<?xml"):
                 try:
                     responseSoup = etree.ElementTree(etree.XML(searchData))
                 except Exception, e:
-                    logger.log("[" + self.name + "] " + self.funcName() + " XML error: " + str(e), logger.ERROR)
+                    logger.log('[{}] {} XML error: {}'.format(self.name, self.funcName(), str(e)), logger.ERROR)
                     continue
 
                 torrents = responseSoup.getiterator('item')
@@ -159,7 +158,7 @@ class TORRENTZProvider(generic.TorrentProvider):
                     for torrent in torrents:
                         if torrent.findtext('guid') and torrent.findtext('title'):
                             title = torrent.findtext('title').encode('ascii', errors='ignore')
-                            magnet = "magnet:?xt=urn:btih:" + re.sub(self.url + '|' + self.url.replace('s:', ':'), '', torrent.findtext('guid')) + "&dn=" + title + ".torrent"
+                            magnet = "magnet:?xt=urn:btih:{}".format(re.sub('{}|{}'.format(self.url, self.url.replace('s:', ':')), '', '{}&dn={}.torrent'.format(torrent.findtext('guid'), title)))
                             results.append((title, magnet))
             time.sleep(1)
         return results
@@ -171,27 +170,19 @@ class TORRENTZProvider(generic.TorrentProvider):
 
     ###################################################################################################
 
-    def getURL(self, url, headers=None):
-        logger.log("[" + self.name + "] " + self.funcName() + " retrieving URL: " + url, logger.DEBUG)
+    def getURL(self, url):
+        logger.log("[{}] {} retrieving URL: {}".format(self.name, self.funcName(), url), logger.DEBUG)
         response = None
 
-        if not headers:
-            headers = {}
-            headers['User-Agent'] = "SickBeard Torrent Edition."
-
         try:
-            response = self.session.get(url, verify=False, headers=headers)
-            cf = cfscrape.create_scraper(sess=self.session)
-            if cf.is_cloudflare_challenge(response):
-                logger.log("[" + self.name + "] " + self.funcName() + " requested URL - " + url + ", encounted CloudFlare DDOS Protection.. Bypassing.", logger.DEBUG)
-                response = cf.get(url, verify=False)
-        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
-            logger.log("[" + self.name + "] " + self.funcName() + " Error loading " + self.name + " URL: " + str(e), logger.ERROR)
+            response = self.session.get(url, verify=False)
+        except (exceptions.ConnectionError, exceptions.HTTPError), e:
+            logger.log("[{}] {} Error loading {} URL: {}".format(self.name, self.funcName(), url, e), logger.ERROR)
             return None
 
         if response.status_code not in [200, 302, 303, 404]:
             # response did not return an acceptable result
-            logger.log("[" + self.name + "] " + self.funcName() + " requested URL - " + url + " returned status code is " + str(response.status_code), logger.ERROR)
+            logger.log('[{}] {} requested URL - {} returned status code is {}'.format(self.name, self.funcName(), url, response.status_code), logger.ERROR)
             return None
         if response.status_code in [404]:
             # response returned an empty result
