@@ -1,7 +1,7 @@
-import re
-import ssl
-import brotli
 import logging
+import re
+import sys
+import ssl
 
 from copy import deepcopy
 from time import sleep
@@ -20,6 +20,11 @@ except ImportError:
     pass
 
 try:
+    import brotli
+except ImportError:
+    pass
+
+try:
     from urlparse import urlparse
     from urlparse import urlunparse
 except ImportError:
@@ -28,30 +33,30 @@ except ImportError:
 
 ##########################################################################################################################################################
 
-__version__ = '1.1.1'
+__version__ = '1.1.5'
 
 BUG_REPORT = 'Cloudflare may have changed their technique, or there may be a bug in the script.'
 
 ##########################################################################################################################################################
 
 
-class cipherSuiteAdapter(HTTPAdapter):
+class CipherSuiteAdapter(HTTPAdapter):
 
     def __init__(self, cipherSuite=None, **kwargs):
         self.cipherSuite = cipherSuite
-        super(cipherSuiteAdapter, self).__init__(**kwargs)
+        super(CipherSuiteAdapter, self).__init__(**kwargs)
 
     ##########################################################################################################################################################
 
     def init_poolmanager(self, *args, **kwargs):
         kwargs['ssl_context'] = create_urllib3_context(ciphers=self.cipherSuite)
-        return super(cipherSuiteAdapter, self).init_poolmanager(*args, **kwargs)
+        return super(CipherSuiteAdapter, self).init_poolmanager(*args, **kwargs)
 
     ##########################################################################################################################################################
 
     def proxy_manager_for(self, *args, **kwargs):
         kwargs['ssl_context'] = create_urllib3_context(ciphers=self.cipherSuite)
-        return super(cipherSuiteAdapter, self).proxy_manager_for(*args, **kwargs)
+        return super(CipherSuiteAdapter, self).proxy_manager_for(*args, **kwargs)
 
 ##########################################################################################################################################################
 
@@ -61,7 +66,7 @@ class CloudScraper(Session):
         self.debug = kwargs.pop('debug', False)
         self.delay = kwargs.pop('delay', None)
         self.interpreter = kwargs.pop('interpreter', 'js2py')
-        self.allow_brotli = kwargs.pop('allow_brotli', True)
+        self.allow_brotli = kwargs.pop('allow_brotli', True if 'brotli' in sys.modules.keys() else False)
         self.cipherSuite = None
 
         super(CloudScraper, self).__init__(*args, **kwargs)
@@ -69,6 +74,8 @@ class CloudScraper(Session):
         if 'requests' in self.headers['User-Agent']:
             # Set a random User-Agent if no custom User-Agent has been set
             self.headers = User_Agent(allow_brotli=self.allow_brotli).headers
+
+        self.mount('https://', CipherSuiteAdapter(self.loadCipherSuite()))
 
     ##########################################################################################################################################################
 
@@ -96,7 +103,6 @@ class CloudScraper(Session):
         self.cipherSuite = ''
 
         ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-        ctx.set_ciphers('ALL')
 
         for cipher in ciphers:
             try:
@@ -111,7 +117,6 @@ class CloudScraper(Session):
 
     def request(self, method, url, *args, **kwargs):
         ourSuper = super(CloudScraper, self)
-        ourSuper.mount('https://', cipherSuiteAdapter(self.loadCipherSuite()))
         resp = ourSuper.request(method, url, *args, **kwargs)
 
         if resp.headers.get('Content-Encoding') == 'br':

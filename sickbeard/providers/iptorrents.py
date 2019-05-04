@@ -26,6 +26,7 @@ import datetime
 import sickbeard
 
 from lib import cloudscraper
+from lib.requests import exceptions
 
 from sickbeard import db
 from sickbeard import logger
@@ -34,11 +35,6 @@ from sickbeard.exceptions import ex
 from sickbeard.common import Quality
 from sickbeard.common import Overview
 from sickbeard import show_name_helpers
-
-try:
-    import brotli
-except ImportError:
-    logger.log('!!Error!! Please install the python module `brotli`.', logger.ERROR)
 
 class IPTorrentsProvider(generic.TorrentProvider):
     ###################################################################################################
@@ -196,7 +192,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
             else:
                 response = self.session.get(url, timeout=30, verify=False)
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
+        except (lib.requests.exceptions.ConnectionError, lib.requests.exceptions.HTTPError), e:
             logger.log("[{}] {} Error loading {} URL: {}".format(
                     self.name,
                     self.funcName(),
@@ -300,7 +296,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
                 verify=False
             )
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
+        except (lib.requests.exceptions.ConnectionError, lib.requests.exceptions.HTTPError), e:
             self.session = None
             logger.log("[{}] {} Error: {}".foramt(self.name, self.funcName(), str(e)), logger.ERROR)
             return False
