@@ -27,9 +27,8 @@ import datetime
 import sickbeard
 import exceptions
 
-from lib import cfscrape
-from lib import requests
-
+from lib import cloudscraper
+from lib.requests import exceptions
 from xml.sax.saxutils import escape
 
 from sickbeard import db
@@ -270,10 +269,8 @@ class TorrentLeechProvider(generic.TorrentProvider):
 
         try:
             response = self.session.get(url, verify=False)
-            if (True, True) == self._cloudFlare(response):
-                response = self.session.get(url, verify=False)
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
+        except (exceptions.ConnectionError, exceptions.HTTPError), e:
             logger.log("[{0}] {1}  Error loading URL: {2}, Error: {3} ".format(
                     self.name,
                     self.funcName(),
@@ -299,39 +296,6 @@ class TorrentLeechProvider(generic.TorrentProvider):
 
     ###########################################################################
 
-    def _cloudFlare(self, response):
-        cf = cfscrape.create_scraper(sess=self.session)
-        if cf.is_cloudflare_challenge(response):
-            logger.log(
-                "[{0}] {1} requested URL - {2}, encounted CloudFlare DDOS Protection.. Bypassing.".format(
-                    self.name,
-                    self.funcName(),
-                    response.url
-                ),
-                logger.DEBUG
-            )
-
-            response = cf.get(
-                "{0}/torrents/browse".format(self.url),
-                verify=False
-            )
-
-            if not cf.is_cloudflare_challenge(response):
-                logger.log(
-                    "[{0}] {1} CloudFlare DDOS Protection.. Bypassed successfully.".format(
-                        self.name,
-                        self.funcName(),
-                    ),
-                    logger.DEBUG
-                )
-                return (True, True);
-
-            return (True, False)
-
-        return (False, True)
-
-    ###########################################################################
-
     def _doLogin(self):
         login_params  = {
             'username': sickbeard.TORRENTLEECH_USERNAME,
@@ -340,7 +304,7 @@ class TorrentLeechProvider(generic.TorrentProvider):
             'login': 'submit'
         }
 
-        self.session = requests.Session()
+        self.session = cloudscraper.create_scraper()
         logger.log("[" + self.name + "] Attempting to Login")
 
         try:
@@ -350,15 +314,7 @@ class TorrentLeechProvider(generic.TorrentProvider):
                 timeout=30,
                 verify=False
             )
-
-            if (True, True) == self._cloudFlare(response):
-                response = self.session.post(
-                    "{0}user/account/login".format(self.url),
-                    data=login_params,
-                    timeout=30,
-                    verify=False
-                )
-        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
+        except (exceptions.ConnectionError, exceptions.HTTPError), e:
             logger.log("[{0}] {1} Error: {2}".format(
                     self.name,
                     self.funcName(),
