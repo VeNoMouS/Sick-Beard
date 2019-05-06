@@ -42,7 +42,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
         generic.TorrentProvider.__init__(self, "IPTorrents")
         self.supportsBacklog = True
         self.cache = IPTorrentsCache(self)
-        self.url = 'https://iptorrents.com/'
+        self.url = 'https://iptorrents.com'
         self.rss_uid = None
         self.rss_passkey = None
         self.name = "IPTorrents"
@@ -133,7 +133,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
     ###################################################################################################
 
     def switchURL(self):
-        new_url = 'https://iptorrents.com/' if not getattr(sickbeard, 'IPTORRENTS_EU', False) else 'https://iptorrents.eu/'
+        new_url = 'https://iptorrents.com' if not getattr(sickbeard, 'IPTORRENTS_EU', False) else 'https://iptorrents.eu'
         # Reset auth session , different domain.
         if new_url != self.url:
             self.session = None
@@ -144,7 +144,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
     def _doSearch(self, search_params, show=None):
         logger.log("[{}] {} Performing Search: {}".format(self.name, self.funcName(), search_params), logger.DEBUG)
         self.switchURL()
-        return self.parseResults("{}t?99=&78=&23=&25=&65=&79=&22=&5=&q={}&qf=#torrents".format(
+        return self.parseResults("{}/t?99=&78=&23=&25=&65=&79=&22=&5=&q={}&qf=#torrents".format(
                 self.url,
                 urllib.quote(search_params)
             )
@@ -229,7 +229,7 @@ class IPTorrentsProvider(generic.TorrentProvider):
             (self.rss_uid, self.rss_passkey) = re.findall(
                 r'\/t\.rss\?u=(\d+);tp=([0-9A-Fa-f]{32});',
                 self.getURL(
-                    "{}getrss.php".format(self.url),
+                    "{}/getrss.php".format(self.url),
                     {
                         's0': '',
                         's1': '',
@@ -277,11 +277,6 @@ class IPTorrentsProvider(generic.TorrentProvider):
     ###################################################################################################
 
     def _doLogin(self):
-        login_params = {
-            'username': sickbeard.IPTORRENTS_USERNAME,
-            'password': sickbeard.IPTORRENTS_PASSWORD,
-        }
-
         self.switchURL()
 
         self.session = cloudscraper.create_scraper()
@@ -291,7 +286,10 @@ class IPTorrentsProvider(generic.TorrentProvider):
         try:
             response = self.session.post(
                 "{}/take_login.php".format(self.url),
-                data=login_params,
+                data={
+                    'username': sickbeard.IPTORRENTS_USERNAME,
+                    'password': sickbeard.IPTORRENTS_PASSWORD,
+                },
                 timeout=30,
                 verify=False
             )
@@ -347,7 +345,7 @@ class IPTorrentsCache(tvcache.TVCache):
 
         if provider.rss_passkey:
             try:
-                self.rss_url = "{}t.rss?u={};tp={};99;79;78;65;25;23;22;5;download".format(
+                self.rss_url = "{}/t.rss?u={};tp={};99;79;78;65;25;23;22;5;download".format(
                     provider.url,
                     provider.rss_uid,
                     provider.rss_passkey
